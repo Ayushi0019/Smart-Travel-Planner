@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Travel Planner with Traffic Simulation</title>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+    .control-panel {
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 8px 12px;
+      margin: 5px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #status {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e9ecef;
+      border-radius: 4px;
+    }
+    .temp-marker {
+      background: red;
+      border-radius: 50%;
+      width: 10px;
+      height: 10px;
+    }
+    .algorithm-controls {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f0f8ff;
+      border-radius: 4px;
+    }
+    select, input {
+      padding: 8px;
+      margin: 5px;
+      width: 150px;
+    }
+    .path-legend {
+      position: absolute;
+      bottom: 30px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    .legend-color {
+      width: 20px;
+      height: 10px;
+      margin-right: 10px;
+      display: inline-block;
+    }
+    /* Traffic Simulator Styles */
+    .traffic-simulator {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .traffic-simulator h3 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 8px;
+    }
+    .traffic-conditions {
+      display: flex;
+      justify-content: space-between;
+      margin: 15px 0;
+    }
+    .traffic-level {
+      text-align: center;
+      padding: 8px;
+      border-radius: 4px;
+      width: 23%;
+    }
+    .light { background: #a3d977; border: 1px solid #7cb342; }
+    .moderate { background: #ffd54f; border: 1px solid #ffb300; }
+    .heavy { background: #ff8a65; border: 1px solid #ff7043; }
+    .severe { background: #e57373; border: 1px solid #e53935; }
+    .time-selector {
+      display: flex;
+      align-items: center;
+      margin: 15px 0;
+    }
+    .time-selector select {
+      padding: 8px;
+      margin-right: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      flex-grow: 1;
+    }
+    .simulate-btn {
+      background: #4a89dc;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .simulate-btn:hover {
+      background: #3b7dd8;
+    }
+    .route-info {
+      position: absolute;
+      top: 100px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      max-width: 250px;
+      display: none;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+  <div class="control-panel">
+    <h2>Smart Travel Planner with Traffic Simulation</h2>
+    <button onclick="addCityMode()">Add City</button>
+    <button onclick="addRouteMode()">Add Route</button>
+    <button onclick="saveGraph()">Save Graph</button>
+    
+    <!-- Traffic Simulator -->
+    <div class="traffic-simulator">
+      <h3>Traffic Simulation</h3>
+      
+      <div class="traffic-conditions">
+        <div class="traffic-level light">
+          <strong>Light</strong><br>
+          1.0-1.2x
+        </div>
+        <div class="traffic-level moderate">
+          <strong>Moderate</strong><br>
+          1.2-1.5x
+        </div>
+        <div class="traffic-level heavy">
+          <strong>Heavy</strong><br>
+          1.5-2.0x
+        </div>
+        <div class="traffic-level severe">
+          <strong>Severe</strong><br>
+          2.0-3.0x
+        </div>
+      </div>
+      
+      <div class="time-selector">
+        <select id="timeOfDay">
+          <option value="early_morning">Early Morning (5-7 AM)</option>
+          <option value="morning_peak">Morning Peak (8-10 AM)</option>
+          <option value="midday" selected>Midday (11 AM - 2 PM)</option>
+          <option value="afternoon">Afternoon (3-5 PM)</option>
+          <option value="evening_peak">Evening Peak (6-8 PM)</option>
+          <option value="night">Night (9 PM - 4 AM)</option>
+        </select>
+        
+        <button class="simulate-btn" onclick="simulateTimeBasedTraffic()">
+          Update Traffic
+        </button>
+      </div>
+    </div>
+    
+    <!-- Algorithm Controls -->
+    <div class="algorithm-controls">
+      <h3>Algorithm Selection</h3>
+      <select id="algorithmSelect">
+        <option value="dijkstra">Dijkstra's (Shortest Path)</option>
+        <option value="floyd">Floyd-Warshall (All Pairs)</option>
+        <option value="mst">Prim's (MST)</option>
+        <option value="travelplan">Travel Plan Optimization</option>
+      </select>
+      
+      <div id="citySelectors" style="display: none;">
+        <select id="startCity"></select>
+        <select id="endCity"></select>
+      </div>
+      
+      <div id="multiCitySelector" style="display: none;">
+        <select id="citiesList" multiple style="height: 100px;"></select>
+      </div>
+      
+      <button onclick="runAlgorithm()">Run Algorithm</button>
+      <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div id="status">Ready. Click 'Add City' to start.</div>
+  </div>
+  
+  <div id="map"></div>
+  
+  <div class="route-info" id="routeInfo">
+    <h4>Route Information</h4>
+    <div id="routeDetails"></div>
+  </div>
+  
+  <div class="path-legend" id="pathLegend" style="display: none;">
+    <h4>Path Legend</h4>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #FF0000;"></span>
+      <span>Dijkstra's Path</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #00FF00;"></span>
+      <span>Floyd-Warshall Path</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #0000FF;"></span>
+      <span>MST Edges</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #FF00FF;"></span>
+      <span>Travel Plan</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #a3d977;"></span>
+      <span>Light Traffic</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #ffd54f;"></span>
+      <span>Moderate Traffic</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #ff8a65;"></span>
+      <span>Heavy Traffic</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: #e57373;"></span>
+      <span>Severe Traffic</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Map initialization
+    const map = L.map('map').setView([28.6139, 77.2090], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Data storage
+    const cities = {};
+    const graphData = [];
+    const routeLayers = {};
+    let resultLayers = {
+      dijkstra: null,
+      floyd: null,
+      mst: null,
+      travelplan: null
+    };
+    let currentMode = null;
+    let tempMarker = null;
+    let routeStart = null;
+    let selectedRoute = null;
+
+    // Initialize UI elements
+    const algorithmSelect = document.getElementById('algorithmSelect');
+    const citySelectors = document.getElementById('citySelectors');
+    const multiCitySelector = document.getElementById('multiCitySelector');
+    const startCitySelect = document.getElementById('startCity');
+    const endCitySelect = document.getElementById('endCity');
+    const citiesListSelect = document.getElementById('citiesList');
+    const pathLegend = document.getElementById('pathLegend');
+    const routeInfo = document.getElementById('routeInfo');
+    const routeDetails = document.getElementById('routeDetails');
+
+    // Update algorithm UI based on selection
+    algorithmSelect.addEventListener('change', function() {
+      citySelectors.style.display = 'none';
+      multiCitySelector.style.display = 'none';
+      
+      switch(this.value) {
+        case 'dijkstra':
+        case 'floyd':
+          citySelectors.style.display = 'block';
+          updateCitySelectors();
+          break;
+        case 'mst':
+          break;
+        case 'travelplan':
+          multiCitySelector.style.display = 'block';
+          updateMultiCitySelector();
+          break;
+      }
+    });
+
+    // Update city dropdowns
+    function updateCitySelectors() {
+      startCitySelect.innerHTML = '';
+      endCitySelect.innerHTML = '';
+      
+      for (const city in cities) {
+        startCitySelect.innerHTML += `<option value="${city}">${city}</option>`;
+        endCitySelect.innerHTML += `<option value="${city}">${city}</option>`;
+      }
+    }
+
+    // Update multi-city selector
+    function updateMultiCitySelector() {
+      citiesListSelect.innerHTML = '';
+      for (const city in cities) {
+        citiesListSelect.innerHTML += `<option value="${city}">${city}</option>`;
+      }
+    }
+
+    // Modes
+    function addCityMode() {
+      currentMode = 'city';
+      updateStatus("Click on map to add a city");
+    }
+
+    function addRouteMode() {
+      if (Object.keys(cities).length < 2) {
+        alert("Need at least 2 cities to create routes");
+        return;
+      }
+      currentMode = 'route';
+      updateStatus("Click first city, then second city");
+    }
+
+    // Map click handler
+    map.on('click', function(e) {
+      if (currentMode === 'city') {
+        const cityName = prompt("Enter city name:");
+        if (cityName) {
+          addCity(cityName, e.latlng);
+          updateCitySelectors();
+          updateMultiCitySelector();
+        }
+      } else if (currentMode === 'route') {
+        handleRouteCreation(e.latlng);
+      }
+    });
+
+    // City management
+    function addCity(name, latlng) {
+      cities[name] = latlng;
+      L.marker(latlng)
+        .addTo(map)
+        .bindPopup(`<b>${name}</b>`)
+        .openPopup();
+      updateStatus(`Added ${name} at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
+    }
+
+    // Route creation
+    function handleRouteCreation(latlng) {
+      // Find closest city
+      let closestCity = null;
+      let minDist = Infinity;
+      
+      for (const [name, pos] of Object.entries(cities)) {
+        const dist = map.distance(latlng, pos);
+        if (dist < minDist) {
+          minDist = dist;
+          closestCity = name;
+        }
+      }
+
+      if (!closestCity) return;
+
+      if (!routeStart) {
+        routeStart = closestCity;
+        tempMarker = L.marker(cities[closestCity], {icon: L.divIcon({className: 'temp-marker'})})
+          .addTo(map);
+        updateStatus(`Selected ${closestCity}. Click destination city.`);
+      } else {
+        const manualDistance = prompt(`Enter distance (km) between ${routeStart} and ${closestCity} (or leave blank for automatic calculation):`, "");
+        addRoute(routeStart, closestCity, manualDistance);
+        cleanupRouteMode();
+      }
+    }
+
+    function cleanupRouteMode() {
+      if (tempMarker) map.removeLayer(tempMarker);
+      routeStart = null;
+      tempMarker = null;
+      currentMode = null;
+    }
+
+    async function addRoute(from, to, manualDistance) {
+      try {
+        updateStatus(`Calculating distance between ${from} and ${to}...`);
+        
+        const fromCoord = cities[from];
+        const toCoord = cities[to];
+        
+        // Use OpenStreetMap's OSRM service for distance calculation
+        const distance = await getOSMRouteDistance(fromCoord, toCoord);
+        
+        const route = { 
+          from, 
+          to, 
+          distance: Math.round(distance / 1000), // Convert to km
+          traffic: 1.0, // Default traffic factor
+          cost: Math.round(distance / 1000),
+          from_lat: fromCoord.lat,
+          from_lng: fromCoord.lng,
+          to_lat: toCoord.lat,
+          to_lng: toCoord.lng,
+          timestamp: new Date().toISOString()
+        };
+        
+        graphData.push(route);
+        updateRouteVisualization(route);
+        updateStatus(`Added route: ${from} to ${to} (${route.distance} km)`);
+      } catch (error) {
+        console.error("Error calculating distance:", error);
+        updateStatus("Error calculating distance. Using manual input.");
+        
+        // Fallback to manual distance
+        const distance = parseInt(manualDistance) || 100;
+        const route = {
+          from,
+          to,
+          distance,
+          traffic: 1.0,
+          cost: distance,
+          from_lat: cities[from].lat,
+          from_lng: cities[from].lng,
+          to_lat: cities[to].lat,
+          to_lng: cities[to].lng,
+          timestamp: new Date().toISOString()
+        };
+        
+        graphData.push(route);
+        updateRouteVisualization(route);
+        updateStatus(`Added route: ${from} to ${to} (${distance} km)`);
+      }
+    }
+
+    // Using OpenStreetMap's OSRM service for distance calculation
+    async function getOSMRouteDistance(origin, destination) {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/` +
+                      `${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false`;
+      
+      try {
+        const response = await fetch(osrmUrl);
+        const data = await response.json();
+        
+        if (data.routes && data.routes[0]) {
+          return data.routes[0].distance; // Distance in meters
+        }
+        throw new Error("OSRM route not found");
+      } catch (error) {
+        console.error("OSRM Error:", error);
+        // Fallback to haversine distance calculation
+        return calculateHaversineDistance(origin, destination);
+      }
+    }
+
+    // Haversine formula fallback
+    function calculateHaversineDistance(origin, destination) {
+      const R = 6371e3; // Earth radius in meters
+      const φ1 = origin.lat * Math.PI/180;
+      const φ2 = destination.lat * Math.PI/180;
+      const Δφ = (destination.lat-origin.lat) * Math.PI/180;
+      const Δλ = (destination.lng-origin.lng) * Math.PI/180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c; // Distance in meters
+    }
+
+    // Traffic Simulation Functions
+    function simulateTimeBasedTraffic() {
+      const timeOfDay = document.getElementById('timeOfDay').value;
+      let baseFactor, variation;
+      
+      // Define traffic patterns based on time of day
+      switch(timeOfDay) {
+        case 'early_morning':
+          baseFactor = 1.1;
+          variation = 0.2;
+          break;
+        case 'morning_peak':
+          baseFactor = 1.8;
+          variation = 0.5;
+          break;
+        case 'midday':
+          baseFactor = 1.3;
+          variation = 0.3;
+          break;
+        case 'afternoon':
+          baseFactor = 1.5;
+          variation = 0.4;
+          break;
+        case 'evening_peak':
+          baseFactor = 2.0;
+          variation = 0.6;
+          break;
+        case 'night':
+          baseFactor = 1.0;
+          variation = 0.1;
+          break;
+      }
+      
+      // Apply traffic to all routes
+      graphData.forEach(route => {
+        // Randomize traffic within the time period's range
+        route.traffic = parseFloat((baseFactor + Math.random() * variation).toFixed(1));
+        
+        // Major routes get heavier traffic during peak times
+        if ((timeOfDay === 'morning_peak' || timeOfDay === 'evening_peak') && 
+            Math.random() > 0.7) {
+          route.traffic = Math.min(3.0, route.traffic * 1.3);
+        }
+        
+        updateRouteVisualization(route);
+      });
+      
+      updateStatus(`Simulated ${document.getElementById('timeOfDay').selectedOptions[0].text} traffic`);
+    }
+
+    function updateRouteVisualization(route) {
+      // Calculate cost based on distance and traffic
+      route.cost = Math.round(route.distance * route.traffic);
+      
+      // Remove existing layer if present
+      if (routeLayers[`${route.from}-${route.to}`]) {
+        map.removeLayer(routeLayers[`${route.from}-${route.to}`]);
+      }
+      
+      // Determine color and weight based on traffic level
+      let color, weight;
+      if (route.traffic < 1.2) {
+        color = '#a3d977'; // Light
+        weight = 3;
+      } else if (route.traffic < 1.5) {
+        color = '#ffd54f'; // Moderate
+        weight = 4;
+      } else if (route.traffic < 2.0) {
+        color = '#ff8a65'; // Heavy
+        weight = 5;
+      } else {
+        color = '#e57373'; // Severe
+        weight = 6;
+      }
+      
+      // Create the route polyline
+      const polyline = L.polyline([cities[route.from], cities[route.to]], {
+        color: color,
+        weight: weight,
+        opacity: 0.9
+      }).bindPopup(`
+        <b>${route.from} → ${route.to}</b><br>
+        Distance: ${route.distance} km<br>
+        Traffic: ${route.traffic}x (${getTrafficLevelName(route.traffic)})<br>
+        Cost: ${route.cost}
+      `);
+      
+      // Store reference and add to map
+      routeLayers[`${route.from}-${route.to}`] = polyline;
+      polyline.addTo(map);
+      
+      // Add click handler
+      polyline.on('click', function() {
+        highlightRoute(route);
+      });
+    }
+    
+    function getTrafficLevelName(trafficValue) {
+      if (trafficValue < 1.2) return 'Light';
+      if (trafficValue < 1.5) return 'Moderate';
+      if (trafficValue < 2.0) return 'Heavy';
+      return 'Severe';
+    }
+    
+    function highlightRoute(route) {
+      // Reset all routes to normal appearance
+      graphData.forEach(r => {
+        updateRouteVisualization(r);
+      });
+      
+      // Highlight the selected route
+      if (routeLayers[`${route.from}-${route.to}`]) {
+        map.removeLayer(routeLayers[`${route.from}-${route.to}`]);
+        
+        L.polyline([cities[route.from], cities[route.to]], {
+          color: '#4a89dc',
+          weight: 8,
+          opacity: 1
+        }).bindPopup(`
+          <b>Selected: ${route.from} → ${route.to}</b><br>
+          Distance: ${route.distance} km<br>
+          Traffic: ${route.traffic}x<br>
+          Cost: ${route.cost}
+        `).addTo(map);
+      }
+      
+      // Show detailed route info
+      routeDetails.innerHTML = `
+        <p><strong>Route:</strong> ${route.from} → ${route.to}</p>
+        <p><strong>Distance:</strong> ${route.distance} km</p>
+        <p><strong>Traffic:</strong> ${route.traffic}x (${getTrafficLevelName(route.traffic)})</p>
+        <p><strong>Calculated Cost:</strong> ${route.cost}</p>
+      `;
+      routeInfo.style.display = 'block';
+      
+      updateStatus(`Selected route ${route.from} → ${route.to} (Traffic: ${route.traffic}x)`);
+    }
+
+    // Run selected algorithm
+    async function runAlgorithm() {
+      const algorithm = algorithmSelect.value;
+      
+      // Clear previous results
+      clearResults();
+      
+      // Prepare data for backend
+      const data = {
+        algorithm: algorithm,
+        cities: cities,
+        graph: graphData
+      };
+      
+      switch(algorithm) {
+        case 'dijkstra':
+          if (!startCitySelect.value || !endCitySelect.value) {
+            alert("Please select both start and end cities");
+            return;
+          }
+          data.start = startCitySelect.value;
+          data.end = endCitySelect.value;
+          break;
+          
+        case 'floyd':
+          if (!startCitySelect.value || !endCitySelect.value) {
+            alert("Please select both start and end cities");
+            return;
+          }
+          data.start = startCitySelect.value;
+          data.end = endCitySelect.value;
+          break;
+          
+        case 'mst':
+          break;
+          
+        case 'travelplan':
+          const selectedCities = Array.from(citiesListSelect.selectedOptions)
+            .map(option => option.value);
+          if (selectedCities.length < 2) {
+            alert("Please select at least 2 cities for travel plan");
+            return;
+          }
+          data.citiesToVisit = selectedCities;
+          break;
+      }
+      
+      updateStatus(`Running ${algorithm} algorithm...`);
+      
+      // Simulate backend processing
+      setTimeout(() => {
+        const mockResults = generateMockResults(algorithm, data);
+        visualizeResults(algorithm, mockResults);
+        updateStatus(`Algorithm completed. Showing ${algorithm} results.`);
+      }, 1000);
+    }
+
+    // Generate mock results for demo purposes
+    function generateMockResults(algorithm, data) {
+      const mockResults = {
+        algorithm: algorithm,
+        path: [],
+        distance: 0,
+        edges: []
+      };
+      
+      const cityNames = Object.keys(cities);
+      
+      switch(algorithm) {
+        case 'dijkstra':
+          mockResults.path = [data.start, cityNames[1], cityNames[2], data.end];
+          mockResults.distance = Math.floor(Math.random() * 1000) + 500;
+          break;
+          
+        case 'floyd':
+          mockResults.path = [data.start, cityNames[0], cityNames[3], data.end];
+          mockResults.distance = Math.floor(Math.random() * 1000) + 400;
+          break;
+          
+        case 'mst':
+          mockResults.edges = [];
+          for (let i = 0; i < cityNames.length - 1; i++) {
+            mockResults.edges.push({
+              from: cityNames[i],
+              to: cityNames[i+1],
+              weight: Math.floor(Math.random() * 500) + 200
+            });
+          }
+          break;
+          
+        case 'travelplan':
+          mockResults.path = data.citiesToVisit;
+          mockResults.distance = Math.floor(Math.random() * 1500) + 800;
+          break;
+      }
+      
+      return mockResults;
+    }
+
+    // Visualize algorithm results
+    function visualizeResults(algorithm, results) {
+      pathLegend.style.display = 'block';
+      
+      switch(algorithm) {
+        case 'dijkstra':
+          visualizePath(results.path, '#FF0000', 'Dijkstra', results.distance);
+          resultLayers.dijkstra = true;
+          break;
+          
+        case 'floyd':
+          visualizePath(results.path, '#00FF00', 'Floyd-Warshall', results.distance);
+          resultLayers.floyd = true;
+          break;
+          
+        case 'mst':
+          visualizeMST(results.edges);
+          resultLayers.mst = true;
+          break;
+          
+        case 'travelplan':
+          visualizePath(results.path, '#FF00FF', 'Travel Plan', results.distance);
+          resultLayers.travelplan = true;
+          break;
+      }
+    }
+
+    // Visualize a path
+    function visualizePath(path, color, name, distance) {
+      const latlngs = path.map(city => cities[city]);
+      const polyline = L.polyline(latlngs, {
+        color: color,
+        weight: 5,
+        dashArray: '10, 5'
+      }).bindPopup(`<b>${name}</b><br>Distance: ${distance} km`)
+      .addTo(map);
+      
+      // Highlight cities in path
+      path.forEach(city => {
+        L.circleMarker(cities[city], {
+          radius: 8,
+          fillColor: color,
+          color: '#fff',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(map);
+      });
+      
+      map.fitBounds(polyline.getBounds());
+    }
+
+    // Visualize MST edges
+    function visualizeMST(edges) {
+      edges.forEach(edge => {
+        L.polyline([cities[edge.from], cities[edge.to]], {
+          color: '#0000FF',
+          weight: 3
+        }).bindPopup(`<b>MST Edge</b><br>${edge.from} → ${edge.to}<br>Weight: ${edge.weight}`)
+        .addTo(map);
+      });
+    }
+
+    // Clear all results
+    function clearResults() {
+      map.eachLayer(layer => {
+        if (layer instanceof L.Polyline || layer instanceof L.CircleMarker) {
+          map.removeLayer(layer);
+        }
+      });
+      
+      // Redraw all routes with their current traffic levels
+      graphData.forEach(route => {
+        updateRouteVisualization(route);
+      });
+      
+      resultLayers = {
+        dijkstra: null,
+        floyd: null,
+        mst: null,
+        travelplan: null
+      };
+      
+      pathLegend.style.display = 'none';
+      routeInfo.style.display = 'none';
+      updateStatus("Cleared all algorithm results");
+    }
+
+    // Save graph data with traffic information
+    function saveGraph() {
+      const data = {
+        metadata: {
+          description: "Travel graph with traffic data",
+          created: new Date().toISOString(),
+          cityCount: Object.keys(cities).length,
+          routeCount: graphData.length
+        },
+        cities: cities,
+        routes: graphData.map(route => ({
+          from: route.from,
+          to: route.to,
+          distance: route.distance,
+          traffic: route.traffic,
+          cost: route.cost,
+          coordinates: {
+            from: [route.from_lat, route.from_lng],
+            to: [route.to_lat, route.to_lng]
+          },
+          timestamp: route.timestamp,
+          traffic_history: []
+        })),
+        traffic_settings: {
+          current_time_period: document.getElementById('timeOfDay').value,
+          average_traffic: calculateAverageTraffic()
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json'
+      });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `travel_graph_${new Date().toISOString().slice(0,10)}.json`;
+      link.click();
+      updateStatus(`Graph data saved with ${graphData.length} routes and traffic info`);
+    }
+
+    function calculateAverageTraffic() {
+      if (graphData.length === 0) return 0;
+      const sum = graphData.reduce((acc, route) => acc + route.traffic, 0);
+      return parseFloat((sum / graphData.length).toFixed(2));
+    }
+
+    // UI Helpers
+    function updateStatus(message) {
+      document.getElementById('status').innerHTML = message;
+    }
+
+    // Initialize
+    updateStatus("Ready. Click 'Add City' to start.");
+    fetch('alternatepath.json')
+    .then(response => response.json())
+    .then(data => {
+      L.geoJSON(data, {
+        style: {
+          color: 'orange',
+          weight: 4,
+          dashArray: '5, 5' // Dashed line for alternate
+        }
+      }).addTo(map);
+    })
+    .catch(error => {
+      console.error('Alternate path loading failed:', error);
+    });
+    // === Load JSON Graph Data Automatically from File ===
+fetch("21.json") // 👈 Replace with your JSON file name (e.g., "mygraph.json")
+  .then(res => res.json())
+  .then(data => {
+    // Clear previous map state
+    clearResults();
+    Object.keys(cities).forEach(key => delete cities[key]);
+    graphData.length = 0;
+
+    // Load cities
+    for (const [name, latlng] of Object.entries(data.cities)) {
+      cities[name] = latlng;
+      L.marker(latlng).addTo(map).bindPopup(`<b>${name}</b>`);
+    }
+
+    // Load routes
+    data.routes.forEach(route => {
+      const loadedRoute = {
+        from: route.from,
+        to: route.to,
+        distance: route.distance,
+        traffic: route.traffic,
+        cost: route.cost,
+        from_lat: route.coordinates.from[0],
+        from_lng: route.coordinates.from[1],
+        to_lat: route.coordinates.to[0],
+        to_lng: route.coordinates.to[1],
+        timestamp: route.timestamp
+      };
+      graphData.push(loadedRoute);
+      updateRouteVisualization(loadedRoute);
+    });
+
+    // Update dropdowns
+    updateCitySelectors();
+    updateMultiCitySelector();
+
+    updateStatus(`✅ Graph loaded from JSON file. Cities: ${Object.keys(data.cities).length}, Routes: ${data.routes.length}`);
+  })
+  .catch(err => {
+    console.error("Error loading JSON:", err);
+    updateStatus("⚠️ Failed to load graph data from JSON.");
+  });
+
+</script>
+
+  
+</body>
+</html>

@@ -1,0 +1,151 @@
+#include <iostream>
+#include <fstream>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <stack>
+#include <queue>
+#include <tuple>
+#include <string>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+using namespace std;
+
+unordered_map<string, vector<pair<string, int>>> adjList;
+unordered_map<string, double> trafficMultiplier;
+vector<tuple<int, string, string>> mstEdges;
+
+string getEdgeKey(const string& u, const string& v) {
+    return u < v ? u + "_" + v : v + "_" + u;
+}
+
+pair<vector<string>, int> dijkstra(const string& source, const string& target, bool useTraffic = false) {
+    unordered_map<string, int> dist;
+    unordered_map<string, string> prev;
+    priority_queue<pair<int, string>, vector<pair<int, string>>, greater<>> pq;
+
+    for (const auto& pair : adjList) dist[pair.first] = INT_MAX;
+    dist[source] = 0;
+    pq.push({0, source});
+
+    while (!pq.empty()) {
+        auto [d, u] = pq.top(); pq.pop();
+        if (d > dist[u]) continue;
+        for (const auto& neighbor : adjList[u]) {
+            const string& v = neighbor.first;
+            int w = neighbor.second;
+            double tf = useTraffic ? trafficMultiplier[getEdgeKey(u, v)] : 1.0;
+            int cost = static_cast<int>(w * tf);
+            if (dist[v] > dist[u] + cost) {
+                dist[v] = dist[u] + cost;
+                prev[v] = u;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    vector<string> path;
+    if (dist[target] == INT_MAX) return {{}, -1};
+    for (string at = target; !at.empty(); at = prev[at]) path.push_back(at);
+    reverse(path.begin(), path.end());
+    return {path, dist[target]};
+}
+
+void primMST(const string& start) {
+    mstEdges.clear();
+    unordered_map<string, bool> inMST;
+    priority_queue<tuple<int, string, string>, vector<tuple<int, string, string>>, greater<tuple<int, string, string>>> pq;
+    inMST[start] = true;
+    for (const auto& neighbor : adjList[start]) {
+        const string& v = neighbor.first;
+        int w = neighbor.second;
+        pq.push(make_tuple(w, start, v));
+    }
+
+    while (!pq.empty()) {
+        tuple<int, string, string> top = pq.top(); pq.pop();
+        int w = get<0>(top);
+        const string& u = get<1>(top);
+        const string& v = get<2>(top);
+        if (inMST[v]) continue;
+        inMST[v] = true;
+        mstEdges.push_back({w, u, v});
+        for (const auto& neighbor : adjList[v]) {
+            const string& nxt = neighbor.first;
+            int wt = neighbor.second;
+            if (!inMST[nxt]) pq.push({wt, v, nxt});
+        }
+    }
+}
+
+pair<vector<string>, int> optimizeTravelPlan(const vector<string>& cities) {
+    if (cities.empty()) return {{}, 0};
+    primMST(cities[0]);
+    unordered_map<string, vector<string>> conn;
+    for (const auto& edge : mstEdges) {
+        int w = get<0>(edge);
+        const string& u = get<1>(edge);
+        const string& v = get<2>(edge);
+        conn[u].push_back(v);
+        conn[v].push_back(u);
+    }
+
+    stack<string> s;
+    unordered_map<string, bool> vis;
+    vector<string> order;
+    s.push(cities[0]); vis[cities[0]] = true;
+
+    while (!s.empty()) {
+        string curr = s.top(); s.pop();
+        order.push_back(curr);
+        for (const auto& nb : conn[curr]) {
+            if (!vis[nb]) {
+                s.push(nb);
+                vis[nb] = true;
+            }
+        }
+    }
+
+    vector<string> finalPath;
+    int totalDist = 0;
+    for (size_t i = 0; i + 1 < order.size(); i++) {
+        auto [p, d] = dijkstra(order[i], order[i + 1], true);
+        if (d == -1) return {{}, -1};
+        for (size_t j = 0; j + 1 < p.size(); j++) finalPath.push_back(p[j]);
+        totalDist += d;
+    }
+    finalPath.push_back(order.back());
+    return {finalPath, totalDist};
+}
+
+int main() {
+    ifstream input("graph.json");
+    json j;
+    input >> j;
+
+    for (const auto& edge : j["graph"]) {
+        string u = edge["from"], v = edge["to"];
+        int d = edge["distance"];
+        adjList[u].emplace_back(v, d);
+        adjList[v].emplace_back(u, d);
+        trafficMultiplier[getEdgeKey(u, v)] = edge.value("traffic_factor", 1.0);
+    }
+
+    vector<string> cities;
+    for (const auto& [name, coords] : j["cities"].items()) {
+        cities.push_back(name);
+    }
+
+    auto [path, cost] = optimizeTravelPlan(cities);
+
+    json output;
+    output["optimized_path"] = path;
+    output["total_cost"] = cost;
+
+    ofstream outFile("output_results.json");
+    outFile << output.dump(4);
+
+    cout << "Optimized path saved to output_results.json\n";
+    return 0;
+}

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Travel Plan Visualizer</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 600px; }
+    .info-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      width: 250px;
+    }
+    .legend {
+      margin-top: 10px;
+      padding: 5px;
+      background: white;
+      border-radius: 5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      border: 1px solid #333;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="info-panel">
+    <h3>Travel Plan Visualizer</h3>
+    <div id="stats"></div>
+    <div class="legend">
+      <h4>Route Types:</h4>
+      <div class="legend-item"><div class="legend-color" style="background-color: #FF0000;"></div> Dijkstra Path</div>
+      <div class="legend-item"><div class="legend-color" style="background-color: #0000FF;"></div> MST Travel Plan</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([20.5937, 78.9629], 5); // Center on India
+    
+    // Add base map layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Load and visualize the data
+    fetch('trial.json')
+      .then(response => response.json())
+      .then(data => {
+        visualizeData(data);
+      })
+      .catch(err => {
+        console.error("Error loading data:", err);
+        alert("Failed to load travel plan data");
+      });
+
+    function visualizeData(data) {
+      // Clear existing layers
+      map.eachLayer(layer => {
+        if (layer !== map.getPane('mapPane')) {
+          map.removeLayer(layer);
+        }
+      });
+
+      // Add base map layer again
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      // Visualize Dijkstra path (red)
+      if (data.dijkstra && data.dijkstra.features) {
+        data.dijkstra.features.forEach(feature => {
+          if (feature.geometry.coordinates.length > 0) {
+            const line = L.polyline(
+              feature.geometry.coordinates.map(coord => [coord[1], coord[0]]),
+              {color: feature.properties.color || '#FF0000', weight: 4}
+            ).addTo(map);
+            line.bindPopup(`<b>${feature.properties.name}</b><br>Distance: ${data.dijkstra_distance} km`);
+          }
+        });
+      }
+
+      // Visualize MST travel plan (blue)
+      if (data.travel_plan && data.travel_plan.features) {
+        data.travel_plan.features.forEach(feature => {
+          if (feature.geometry.coordinates.length > 0) {
+            const line = L.polyline(
+              feature.geometry.coordinates.map(coord => [coord[1], coord[0]]),
+              {color: feature.properties.color || '#0000FF', weight: 3, dashArray: '5,5'}
+            ).addTo(map);
+            line.bindPopup(`<b>${feature.properties.name}</b><br>Distance: ${data.travel_plan_distance} km`);
+          }
+        });
+      }
+
+      // Update stats
+      document.getElementById('stats').innerHTML = `
+        <p>Dijkstra Path Distance: ${data.dijkstra_distance} km</p>
+        <p>MST Travel Plan Distance: ${data.travel_plan_distance} km</p>
+      `;
+    }
+  </script>
+</body>
+</html>

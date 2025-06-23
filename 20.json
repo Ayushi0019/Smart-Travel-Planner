@@ -1,0 +1,131 @@
+{
+  "metadata": {
+    "description": "Travel graph with traffic data",
+    "created": "2025-06-19T03:52:49.917Z",
+    "cityCount": 5,
+    "routeCount": 5
+  },
+  "cities": {
+    "Delhi": {
+      "lat": 28.55907410337595,
+      "lng": 77.16796875000001
+    },
+    "Jaipur": {
+      "lat": 26.87663340904671,
+      "lng": 75.82763671875001
+    },
+    "Agra": {
+      "lat": 26.916682291985264,
+      "lng": 77.87109375
+    },
+    "Bhopal": {
+      "lat": 23.053956604974424,
+      "lng": 77.69531250000001
+    },
+    "Mumbai": {
+      "lat": 18.820257325467978,
+      "lng": 73.12500000000001
+    }
+  },
+  "routes": [
+    {
+      "from": "Delhi",
+      "to": "Jaipur",
+      "distance": 270,
+      "traffic": 1,
+      "cost": 270,
+      "coordinates": {
+        "from": [
+          28.55907410337595,
+          77.16796875000001
+        ],
+        "to": [
+          26.87663340904671,
+          75.82763671875001
+        ]
+      },
+      "timestamp": "2025-06-19T03:47:27.515Z",
+      "traffic_history": []
+    },
+    {
+      "from": "Delhi",
+      "to": "Agra",
+      "distance": 237,
+      "traffic": 1,
+      "cost": 237,
+      "coordinates": {
+        "from": [
+          28.55907410337595,
+          77.16796875000001
+        ],
+        "to": [
+          26.916682291985264,
+          77.87109375
+        ]
+      },
+      "timestamp": "2025-06-19T03:47:59.379Z",
+      "traffic_history": []
+    },
+    {
+      "from": "Agra",
+      "to": "Bhopal",
+      "distance": 570,
+      "traffic": 1,
+      "cost": 570,
+      "coordinates": {
+        "from": [
+          26.916682291985264,
+          77.87109375
+        ],
+        "to": [
+          23.053956604974424,
+          77.69531250000001
+        ]
+      },
+      "timestamp": "2025-06-19T03:48:18.505Z",
+      "traffic_history": []
+    },
+    {
+      "from": "Agra",
+      "to": "Mumbai",
+      "distance": 1250,
+      "traffic": 1,
+      "cost": 1250,
+      "coordinates": {
+        "from": [
+          26.916682291985264,
+          77.87109375
+        ],
+        "to": [
+          18.820257325467978,
+          73.12500000000001
+        ]
+      },
+      "timestamp": "2025-06-19T03:48:59.269Z",
+      "traffic_history": []
+    },
+    {
+      "from": "Bhopal",
+      "to": "Mumbai",
+      "distance": 852,
+      "traffic": 1,
+      "cost": 852,
+      "coordinates": {
+        "from": [
+          23.053956604974424,
+          77.69531250000001
+        ],
+        "to": [
+          18.820257325467978,
+          73.12500000000001
+        ]
+      },
+      "timestamp": "2025-06-19T03:49:10.329Z",
+      "traffic_history": []
+    }
+  ],
+  "traffic_settings": {
+    "current_time_period": "midday",
+    "average_traffic": 1
+  }
+}
